@@ -63,15 +63,17 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-if os.getenv("DATABASE_ENGINE") == "django.db.backends.postgresql":
+db_engine = os.getenv("DATABASE_ENGINE", "").lower()
+
+if os.getenv("DATABASE_SERVICE_NAME") or db_engine in ["postgresql", "django.db.backends.postgresql"]:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DATABASE_NAME", ""),
-            "USER": os.getenv("DATABASE_USER", ""),
-            "PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
-            "HOST": os.getenv("DATABASE_SERVICE_NAME", ""),
-            "PORT": os.getenv("DATABASE_PORT", "5432"),
+            "NAME": os.getenv("POSTGRESQL_DATABASE", os.getenv("DATABASE_NAME", "")),
+            "USER": os.getenv("POSTGRESQL_USER", os.getenv("DATABASE_USER", "")),
+            "PASSWORD": os.getenv("POSTGRESQL_PASSWORD", os.getenv("DATABASE_PASSWORD", "")),
+            "HOST": os.getenv("DATABASE_SERVICE_NAME", os.getenv("DATABASE_HOST", "")),
+            "PORT": os.getenv("POSTGRESQL_PORT", os.getenv("DATABASE_PORT", "5432")),
         }
     }
 else:
