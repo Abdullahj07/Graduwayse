@@ -23,12 +23,16 @@ from django.http import JsonResponse
 def home(request):
     return JsonResponse({"status": "Backend is running"})
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
     path("api/internal-jobs/", include("internal_jobs.urls")),
     path("api/applications/", include("applications.urls")),
     path("api/chat/", include("chat.urls")),
+    path("health", health_check),
     path("", home),
 ]
 
