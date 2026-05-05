@@ -75,9 +75,6 @@ class InternalJobApiTests(APITestCase):
         )
 
     def get_response_items(self, response):
-        """
-        Supports both paginated and non-paginated DRF responses.
-        """
         if isinstance(response.data, dict) and "results" in response.data:
             return response.data["results"]
         return response.data
@@ -122,7 +119,6 @@ class InternalJobApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["title"], "New Graduate Developer")
-
         job = InternalJob.objects.get(title="New Graduate Developer")
         self.assertEqual(job.source, InternalJob.Source.MANUAL)
         self.assertEqual(job.employer, self.employer)
@@ -161,11 +157,8 @@ class InternalJobApiTests(APITestCase):
         )
 
         self.client.force_authenticate(user=self.employer)
-
         response = self.client.get(f"{INTERNAL_JOBS_BASE_URL}/mine/")
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         jobs = self.get_response_items(response)
         returned_job_ids = [job["id"] for job in jobs]
 
@@ -182,35 +175,26 @@ class InternalJobApiTests(APITestCase):
         inactive_response = self.client.get(
             f"{INTERNAL_JOBS_BASE_URL}/{self.inactive_job.id}/"
         )
-
         self.assertEqual(active_response.status_code, status.HTTP_200_OK)
         self.assertEqual(inactive_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_source_filter_returns_only_reed_jobs(self):
         self.client.force_authenticate(user=self.graduate)
-
         response = self.client.get(f"{INTERNAL_JOBS_BASE_URL}/?source=REED")
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         jobs = self.get_response_items(response)
-
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0]["source"], "REED")
         self.assertEqual(jobs[0]["id"], self.reed_job.id)
 
     def test_can_apply_in_app_true_for_manual_jobs(self):
         self.client.force_authenticate(user=self.graduate)
-
         response = self.client.get(f"{INTERNAL_JOBS_BASE_URL}/{self.manual_job.id}/")
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["can_apply_in_app"])
 
     def test_can_apply_in_app_false_for_external_jobs(self):
         self.client.force_authenticate(user=self.graduate)
-
         response = self.client.get(f"{INTERNAL_JOBS_BASE_URL}/{self.reed_job.id}/")
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["can_apply_in_app"])

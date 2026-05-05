@@ -1,4 +1,15 @@
 import { useState } from "react";
+import {
+  FiBriefcase,
+  FiGrid,
+  FiLogOut,
+  FiMail,
+  FiMessageSquare,
+  FiSearch,
+  FiShield,
+  FiUser,
+  FiUsers,
+} from "react-icons/fi";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { api } from "./api/client";
 import LoginPage from "./pages/Login";
@@ -36,6 +47,36 @@ type EmployerScreen =
   | "chats"
   | "job_applicants";
 
+function NavBtn({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      style={active ? styles.navButtonActive : styles.navButton}
+      onClick={onClick}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        {icon}
+        {label}
+      </span>
+    </button>
+  );
+}
+
 function CvVisibilityNoticeModal({
   open,
   loading,
@@ -67,12 +108,31 @@ function CvVisibilityNoticeModal({
           width: "100%",
           maxWidth: 560,
           background: "#fff",
-          borderRadius: 16,
+          borderRadius: 20,
           padding: 24,
           boxShadow: "0 25px 60px rgba(0, 0, 0, 0.25)",
+          border: "1px solid #e2e8f0",
         }}
       >
-        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            borderRadius: 999,
+            background: "#eff6ff",
+            color: "#2563eb",
+            fontWeight: 800,
+            fontSize: 12,
+            marginBottom: 14,
+          }}
+        >
+          <FiShield size={16} />
+          Visibility notice
+        </div>
+
+        <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
           Important CV visibility notice
         </div>
 
@@ -86,7 +146,7 @@ function CvVisibilityNoticeModal({
           style={{
             marginTop: 16,
             padding: 14,
-            borderRadius: 12,
+            borderRadius: 14,
             background: "#f8fafc",
             border: "1px solid #e2e8f0",
             color: "#475569",
@@ -97,20 +157,7 @@ function CvVisibilityNoticeModal({
           platform may browse and review your profile and CV.
         </div>
 
-        {error && (
-          <div
-            style={{
-              marginTop: 14,
-              color: "#b91c1c",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              borderRadius: 10,
-              padding: 12,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        {error && <div style={{ ...styles.errorBox, marginTop: 14 }}>{error}</div>}
 
         <div
           style={{
@@ -144,12 +191,8 @@ function AppContent() {
   const [employerScreen, setEmployerScreen] =
     useState<EmployerScreen>("dashboard");
 
-  const [chatApplicationId, setChatApplicationId] = useState<number | null>(
-    null
-  );
-  const [directMessageTargetUserId, setDirectMessageTargetUserId] = useState<
-    number | null
-  >(null);
+  const [chatApplicationId, setChatApplicationId] = useState<number | null>(null);
+  const [directMessageTargetUserId, setDirectMessageTargetUserId] = useState<number | null>(null);
 
   const [selectedEmployerJob, setSelectedEmployerJob] = useState<{
     id: number;
@@ -211,7 +254,7 @@ function AppContent() {
     }
   }
 
-  if (isLoading) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (isLoading) return <div style={{ padding: 24 }}>Loading...</div>;
 
   if (!user) {
     if (authScreen === "home") {
@@ -270,22 +313,8 @@ function AppContent() {
   const showCvNotice =
     user.role === "GRADUATE" && !user.has_seen_cv_visibility_notice;
 
-  const roleBadgeStyle: React.CSSProperties = {
-    padding: "6px 12px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 700,
-    background: user.role === "GRADUATE" ? "#dbeafe" : "#ede9fe",
-    color: user.role === "GRADUATE" ? "#1d4ed8" : "#6d28d9",
-    border:
-      user.role === "GRADUATE"
-        ? "1px solid #93c5fd"
-        : "1px solid #c4b5fd",
-    whiteSpace: "nowrap",
-  };
-
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <div style={styles.page}>
       <CvVisibilityNoticeModal
         open={showCvNotice}
         loading={acknowledgingCvNotice}
@@ -293,147 +322,110 @@ function AppContent() {
         onConfirm={acknowledgeCvVisibilityNotice}
       />
 
-      <div
-        style={{
-          borderBottom: "1px solid #ddd",
-          padding: "12px 20px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: "#fff",
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 20 }}>Graduwayse</div>
+      <div style={styles.topBar}>
+        <div style={styles.brandWrap}>
+          <div style={styles.brandMark}>
+            <FiBriefcase size={20} />
+          </div>
+          <div style={styles.brandTextWrap}>
+            <div style={styles.brandTitle}>Graduwayse</div>
+            <div style={styles.brandSubtitle}>
+              Graduate jobs, applications, and messaging
+            </div>
+          </div>
+        </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ color: "#555" }}>{user.email}</div>
-
-          <span style={roleBadgeStyle}>
-            {user.role === "GRADUATE" ? "Graduate" : "Employer"}
-          </span>
-
+        <div style={styles.topActions}>
+          <div style={styles.userChip}>
+            <FiUser size={16} />
+            {user.email}
+          </div>
           <button style={styles.buttonSecondary} onClick={logout}>
-            Logout
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <FiLogOut size={16} />
+              Logout
+            </span>
           </button>
         </div>
       </div>
 
       {user.role === "GRADUATE" && (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            padding: "10px 20px",
-            borderBottom: "1px solid #eee",
-            background: "#fafafa",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            style={styles.buttonSecondary}
+        <div style={styles.navBar}>
+          <NavBtn
+            active={graduateScreen === "internal_jobs"}
+            icon={<FiBriefcase size={16} />}
+            label="Platform Jobs"
             onClick={() => setGraduateScreen("internal_jobs")}
-          >
-            Platform Jobs
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "adzuna_jobs"}
+            icon={<FiSearch size={16} />}
+            label="Adzuna Jobs"
             onClick={() => setGraduateScreen("adzuna_jobs")}
-          >
-            External Adzuna Jobs
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "reed_jobs"}
+            icon={<FiSearch size={16} />}
+            label="Reed Jobs"
             onClick={() => setGraduateScreen("reed_jobs")}
-          >
-            External Reed Jobs
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "applications"}
+            icon={<FiGrid size={16} />}
+            label="My Applications"
             onClick={() => setGraduateScreen("applications")}
-          >
-            My Applications
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "profile"}
+            icon={<FiUser size={16} />}
+            label="My Profile"
             onClick={() => setGraduateScreen("profile")}
-          >
-            My Profile
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "messages"}
+            icon={<FiMail size={16} />}
+            label="Direct Messages"
             onClick={() => openDirectMessages()}
-          >
-            Messages
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={graduateScreen === "chats"}
+            icon={<FiMessageSquare size={16} />}
+            label="Application Chats"
             onClick={() => openChats()}
-          >
-            Application Chats
-          </button>
+          />
         </div>
       )}
 
       {user.role === "EMPLOYER" && (
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            padding: "10px 20px",
-            borderBottom: "1px solid #eee",
-            background: "#fafafa",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            style={styles.buttonSecondary}
+        <div style={styles.navBar}>
+          <NavBtn
+            active={employerScreen === "dashboard"}
+            icon={<FiGrid size={16} />}
+            label="Manage Jobs"
             onClick={() => setEmployerScreen("dashboard")}
-          >
-            Manage Jobs
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={employerScreen === "students"}
+            icon={<FiUsers size={16} />}
+            label="Browse Students"
             onClick={() => setEmployerScreen("students")}
-          >
-            Students
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={employerScreen === "messages"}
+            icon={<FiMail size={16} />}
+            label="Direct Messages"
             onClick={() => openDirectMessages()}
-          >
-            Messages
-          </button>
-
-          <button
-            style={styles.buttonSecondary}
+          />
+          <NavBtn
+            active={employerScreen === "chats"}
+            icon={<FiMessageSquare size={16} />}
+            label="Application Chats"
             onClick={() => openChats()}
-          >
-            Application Chats
-          </button>
+          />
         </div>
       )}
 
-      <div style={{ padding: 20 }}>
+      <div style={styles.container}>
         {user.role === "EMPLOYER" && (
           <>
             {employerScreen === "dashboard" && (
