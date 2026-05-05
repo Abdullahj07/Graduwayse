@@ -1,6 +1,5 @@
-# Graduwayse
 
-Graduwayse is a graduate job platform built with React, TypeScript, Django, Django REST Framework, and Django Channels.
+Hello and welocme to Graduwayse. Graduwayse is a graduate job platform built with React, TypeScript, Django, Django REST Framework, and Django Channels.
 
 ## Features
 - Graduate and employer accounts
@@ -21,6 +20,3 @@ Graduwayse is a graduate job platform built with React, TypeScript, Django, Djan
 - npm run dev
 
 
-git remote add origin https://github.com/Abdullahj07/Graduwayse.git
-git branch -M main
-git push -u origin main
