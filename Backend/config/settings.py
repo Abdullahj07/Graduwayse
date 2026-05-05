@@ -65,7 +65,25 @@ ASGI_APPLICATION = "config.asgi.application"
 
 db_engine = os.getenv("DATABASE_ENGINE", "").lower()
 
-db_engine = os.getenv("DATABASE_ENGINE", "").lower()
+
+def get_postgres_port():
+    database_port = os.getenv("DATABASE_PORT", "")
+    if database_port.isdigit():
+        return database_port
+
+    service_port = os.getenv("POSTGRESQL_SERVICE_PORT", "")
+    if service_port.isdigit():
+        return service_port
+
+    postgres_port = os.getenv("POSTGRESQL_PORT", "")
+    if postgres_port.startswith("tcp://") and ":" in postgres_port:
+        return postgres_port.rsplit(":", 1)[1]
+
+    if postgres_port.isdigit():
+        return postgres_port
+
+    return "5432"
+
 
 if os.getenv("DATABASE_SERVICE_NAME") or db_engine in ["postgresql", "django.db.backends.postgresql"]:
     DATABASES = {
@@ -74,8 +92,8 @@ if os.getenv("DATABASE_SERVICE_NAME") or db_engine in ["postgresql", "django.db.
             "NAME": os.getenv("DATABASE_NAME", os.getenv("POSTGRESQL_DATABASE", "")),
             "USER": os.getenv("DATABASE_USER", os.getenv("POSTGRESQL_USER", "")),
             "PASSWORD": os.getenv("DATABASE_PASSWORD", os.getenv("POSTGRESQL_PASSWORD", "")),
-            "HOST": os.getenv("DATABASE_SERVICE_NAME", os.getenv("DATABASE_HOST", "")),
-            "PORT": os.getenv("DATABASE_PORT", os.getenv("POSTGRESQL_PORT", "5432")),
+            "HOST": os.getenv("DATABASE_SERVICE_NAME", os.getenv("DATABASE_HOST", "postgresql")),
+            "PORT": get_postgres_port(),
         }
     }
 else:
@@ -88,6 +106,7 @@ else:
             },
         }
     }
+    
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
