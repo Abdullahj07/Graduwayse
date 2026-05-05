@@ -65,6 +65,8 @@ ASGI_APPLICATION = "config.asgi.application"
 
 db_engine = os.getenv("DATABASE_ENGINE", "").lower()
 
+db_engine = os.getenv("DATABASE_ENGINE", "").lower()
+
 if os.getenv("DATABASE_SERVICE_NAME") or db_engine in ["postgresql", "django.db.backends.postgresql"]:
     DATABASES = {
         "default": {
@@ -86,7 +88,6 @@ else:
             },
         }
     }
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
