@@ -1,0 +1,504 @@
+import { useState } from "react";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { api } from "./api/client";
+import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import HomePage from "./pages/HomePage";
+import EmployerDashboard from "./pages/EmployerDashboard";
+import EmployerStudentsPage from "./pages/EmployerStudentsPage";
+import EmployerJobApplicantsPage from "./pages/EmployerJobApplicantsPage";
+import GraduateProfilePage from "./pages/GraduateProfilePage";
+import DirectMessagesPage from "./pages/DirectMessagesPage";
+import InternalJobsPage from "./pages/InternalJobsPage";
+import AdzunaJobsPage from "./pages/AdzunaJobsPage";
+import ReedJobsPage from "./pages/ReedJobsPage";
+import MyApplications from "./pages/MyApplications";
+import ChatsPage from "./pages/ChatsPage";
+import { styles } from "./ui/ui";
+
+type AuthScreen = "home" | "login" | "register" | "verify_email";
+type Role = "GRADUATE" | "EMPLOYER";
+
+type GraduateScreen =
+  | "internal_jobs"
+  | "adzuna_jobs"
+  | "reed_jobs"
+  | "applications"
+  | "profile"
+  | "messages"
+  | "chats";
+
+type EmployerScreen =
+  | "dashboard"
+  | "students"
+  | "messages"
+  | "chats"
+  | "job_applicants";
+
+function CvVisibilityNoticeModal({
+  open,
+  loading,
+  error,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15, 23, 42, 0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 560,
+          background: "#fff",
+          borderRadius: 16,
+          padding: 24,
+          boxShadow: "0 25px 60px rgba(0, 0, 0, 0.25)",
+        }}
+      >
+        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
+          Important CV visibility notice
+        </div>
+
+        <div style={{ color: "#475569", lineHeight: 1.7 }}>
+          Employers can view your graduate profile and CV even if you have not
+          applied to their jobs. Your CV visibility is not restricted only to
+          employers for jobs you apply to.
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            padding: 14,
+            borderRadius: 12,
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            color: "#475569",
+            lineHeight: 1.6,
+          }}
+        >
+          By continuing, you confirm that you understand that employers on the
+          platform may browse and review your profile and CV.
+        </div>
+
+        {error && (
+          <div
+            style={{
+              marginTop: 14,
+              color: "#b91c1c",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: 20,
+            display: "flex",
+            justifyContent: "flex-end",
+          }}
+        >
+          <button
+            style={styles.buttonPrimary}
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "I understand"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppContent() {
+  const { user, isLoading, logout, setUser } = useAuth();
+
+  const [authScreen, setAuthScreen] = useState<AuthScreen>("home");
+  const [selectedAuthRole, setSelectedAuthRole] = useState<Role>("GRADUATE");
+  const [verificationEmail, setVerificationEmail] = useState("");
+
+  const [graduateScreen, setGraduateScreen] =
+    useState<GraduateScreen>("internal_jobs");
+  const [employerScreen, setEmployerScreen] =
+    useState<EmployerScreen>("dashboard");
+
+  const [chatApplicationId, setChatApplicationId] = useState<number | null>(
+    null
+  );
+  const [directMessageTargetUserId, setDirectMessageTargetUserId] = useState<
+    number | null
+  >(null);
+
+  const [selectedEmployerJob, setSelectedEmployerJob] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+
+  const [acknowledgingCvNotice, setAcknowledgingCvNotice] = useState(false);
+  const [cvNoticeError, setCvNoticeError] = useState<string | null>(null);
+
+  function openChats(applicationId?: number | null) {
+    setChatApplicationId(applicationId ?? null);
+
+    if (user?.role === "EMPLOYER") {
+      setEmployerScreen("chats");
+      return;
+    }
+
+    if (user?.role === "GRADUATE") {
+      setGraduateScreen("chats");
+    }
+  }
+
+  function openDirectMessages(targetUserId?: number | null) {
+    setDirectMessageTargetUserId(targetUserId ?? null);
+
+    if (user?.role === "EMPLOYER") {
+      setEmployerScreen("messages");
+      return;
+    }
+
+    if (user?.role === "GRADUATE") {
+      setGraduateScreen("messages");
+    }
+  }
+
+  function openEmployerJobApplicants(jobId: number, jobTitle: string) {
+    setSelectedEmployerJob({ id: jobId, title: jobTitle });
+    setEmployerScreen("job_applicants");
+  }
+
+  async function acknowledgeCvVisibilityNotice() {
+    if (!user || user.role !== "GRADUATE") return;
+
+    setCvNoticeError(null);
+    setAcknowledgingCvNotice(true);
+
+    try {
+      await api.post("/auth/acknowledge-cv-visibility/");
+      setUser({
+        ...user,
+        has_seen_cv_visibility_notice: true,
+      });
+    } catch (err: any) {
+      setCvNoticeError(
+        err?.response?.data?.detail || "Failed to save your acknowledgement."
+      );
+    } finally {
+      setAcknowledgingCvNotice(false);
+    }
+  }
+
+  if (isLoading) return <div style={{ padding: 20 }}>Loading...</div>;
+
+  if (!user) {
+    if (authScreen === "home") {
+      return (
+        <HomePage
+          onSelectRole={(role) => {
+            setSelectedAuthRole(role);
+            setAuthScreen("register");
+          }}
+          onGoToLogin={() => setAuthScreen("login")}
+        />
+      );
+    }
+
+    if (authScreen === "login") {
+      return (
+        <LoginPage
+          initialEmail={verificationEmail}
+          onGoToRegister={() => setAuthScreen("register")}
+          onBackHome={() => setAuthScreen("home")}
+          onGoToVerify={(email) => {
+            setVerificationEmail(email || "");
+            setAuthScreen("verify_email");
+          }}
+        />
+      );
+    }
+
+    if (authScreen === "register") {
+      return (
+        <RegisterPage
+          initialRole={selectedAuthRole}
+          onGoToLogin={() => setAuthScreen("login")}
+          onBackHome={() => setAuthScreen("home")}
+          onRegistered={(email) => {
+            setVerificationEmail(email);
+            setAuthScreen("verify_email");
+          }}
+        />
+      );
+    }
+
+    return (
+      <VerifyEmailPage
+        initialEmail={verificationEmail}
+        onBackHome={() => setAuthScreen("home")}
+        onGoToLogin={() => setAuthScreen("login")}
+        onVerified={(email) => {
+          setVerificationEmail(email);
+          setAuthScreen("login");
+        }}
+      />
+    );
+  }
+
+  const showCvNotice =
+    user.role === "GRADUATE" && !user.has_seen_cv_visibility_notice;
+
+  const roleBadgeStyle: React.CSSProperties = {
+    padding: "6px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    background: user.role === "GRADUATE" ? "#dbeafe" : "#ede9fe",
+    color: user.role === "GRADUATE" ? "#1d4ed8" : "#6d28d9",
+    border:
+      user.role === "GRADUATE"
+        ? "1px solid #93c5fd"
+        : "1px solid #c4b5fd",
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      <CvVisibilityNoticeModal
+        open={showCvNotice}
+        loading={acknowledgingCvNotice}
+        error={cvNoticeError}
+        onConfirm={acknowledgeCvVisibilityNotice}
+      />
+
+      <div
+        style={{
+          borderBottom: "1px solid #ddd",
+          padding: "12px 20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "#fff",
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 20 }}>Graduwayse</div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ color: "#555" }}>{user.email}</div>
+
+          <span style={roleBadgeStyle}>
+            {user.role === "GRADUATE" ? "Graduate" : "Employer"}
+          </span>
+
+          <button style={styles.buttonSecondary} onClick={logout}>
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {user.role === "GRADUATE" && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "10px 20px",
+            borderBottom: "1px solid #eee",
+            background: "#fafafa",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setGraduateScreen("internal_jobs")}
+          >
+            Platform Jobs
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setGraduateScreen("adzuna_jobs")}
+          >
+            External Adzuna Jobs
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setGraduateScreen("reed_jobs")}
+          >
+            External Reed Jobs
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setGraduateScreen("applications")}
+          >
+            My Applications
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setGraduateScreen("profile")}
+          >
+            My Profile
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => openDirectMessages()}
+          >
+            Messages
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => openChats()}
+          >
+            Application Chats
+          </button>
+        </div>
+      )}
+
+      {user.role === "EMPLOYER" && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "10px 20px",
+            borderBottom: "1px solid #eee",
+            background: "#fafafa",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setEmployerScreen("dashboard")}
+          >
+            Manage Jobs
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => setEmployerScreen("students")}
+          >
+            Students
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => openDirectMessages()}
+          >
+            Messages
+          </button>
+
+          <button
+            style={styles.buttonSecondary}
+            onClick={() => openChats()}
+          >
+            Application Chats
+          </button>
+        </div>
+      )}
+
+      <div style={{ padding: 20 }}>
+        {user.role === "EMPLOYER" && (
+          <>
+            {employerScreen === "dashboard" && (
+              <EmployerDashboard onViewApplicants={openEmployerJobApplicants} />
+            )}
+
+            {employerScreen === "students" && (
+              <EmployerStudentsPage onOpenDirectMessages={openDirectMessages} />
+            )}
+
+            {employerScreen === "messages" && (
+              <DirectMessagesPage
+                role="EMPLOYER"
+                initialTargetUserId={directMessageTargetUserId}
+              />
+            )}
+
+            {employerScreen === "chats" && (
+              <ChatsPage
+                role="EMPLOYER"
+                initialApplicationId={chatApplicationId}
+              />
+            )}
+
+            {employerScreen === "job_applicants" && selectedEmployerJob && (
+              <EmployerJobApplicantsPage
+                jobId={selectedEmployerJob.id}
+                jobTitle={selectedEmployerJob.title}
+                onBack={() => setEmployerScreen("dashboard")}
+                onOpenChats={openChats}
+              />
+            )}
+          </>
+        )}
+
+        {user.role === "GRADUATE" && (
+          <>
+            {graduateScreen === "internal_jobs" && <InternalJobsPage />}
+            {graduateScreen === "adzuna_jobs" && <AdzunaJobsPage />}
+            {graduateScreen === "reed_jobs" && <ReedJobsPage />}
+            {graduateScreen === "applications" && <MyApplications />}
+            {graduateScreen === "profile" && <GraduateProfilePage />}
+            {graduateScreen === "messages" && (
+              <DirectMessagesPage
+                role="GRADUATE"
+                initialTargetUserId={directMessageTargetUserId}
+              />
+            )}
+            {graduateScreen === "chats" && (
+              <ChatsPage
+                role="GRADUATE"
+                initialApplicationId={chatApplicationId}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
