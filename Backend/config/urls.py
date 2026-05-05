@@ -33,6 +33,7 @@ urlpatterns = [
     path("api/applications/", include("applications.urls")),
     path("api/chat/", include("chat.urls")),
     path("health", health_check),
+    path("health/", health_check),
     path("", home),
 ]
 
