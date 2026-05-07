@@ -1,6 +1,11 @@
 from django.conf import settings
+from django.contrib.auth import password_validation
+from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db.models import Q
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 
 from rest_framework import generics, permissions, parsers, status
 from rest_framework.views import APIView
@@ -142,6 +147,112 @@ class ResendVerificationView(APIView):
             {
                 "detail": "If an unverified account exists for that email, a new verification code has been sent."
             },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = str(request.data.get("email", "")).strip().lower()
+
+        if not email:
+            return Response(
+                {"detail": "Email address is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+
+        # Do not reveal whether the email exists.
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+            reset_link = f"{frontend_url}/?reset_password=1&uid={uid}&token={token}"
+
+            subject = "Reset your Graduwayse password"
+            message = (
+                f"Hi {user.full_name or 'there'},\n\n"
+                f"You requested a password reset for your Graduwayse account.\n\n"
+                f"Click the link below to reset your password:\n"
+                f"{reset_link}\n\n"
+                f"If you did not request this, you can ignore this email."
+            )
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@graduwayse.com"),
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {
+                "detail": "If an account exists with that email, a password reset link has been sent."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        if not uid or not token:
+            return Response(
+                {"detail": "Invalid password reset link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not new_password or not confirm_password:
+            return Response(
+                {"detail": "Please enter and confirm your new password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_password != confirm_password:
+            return Response(
+                {"detail": "Passwords do not match."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except Exception:
+            return Response(
+                {"detail": "Invalid password reset link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return Response(
+                {"detail": "This password reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            password_validation.validate_password(new_password, user=user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": " ".join(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        return Response(
+            {"detail": "Password reset successfully. You can now sign in."},
             status=status.HTTP_200_OK,
         )
 

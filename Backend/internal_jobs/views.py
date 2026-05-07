@@ -1,9 +1,12 @@
 import requests
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
 from django.conf import settings
 from django.db import close_old_connections
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -376,14 +379,20 @@ class InternalJobListCreateView(generics.ListCreateAPIView):
         ordering = self.request.query_params.get("ordering")
 
         if source == "MANUAL":
-            queryset = queryset.filter(source=InternalJob.Source.MANUAL)
-            queryset = queryset.order_by("-created_at")
+            cutoff_date = timezone.now() - timedelta(days=14)
+            queryset = queryset.filter(
+                source=InternalJob.Source.MANUAL,
+                created_at__gte=cutoff_date,
+            ).order_by("-created_at")
+
         elif source == "ADZUNA":
             queryset = queryset.filter(source=InternalJob.Source.ADZUNA)
             queryset = queryset.order_by("-external_created_at", "-created_at")
+
         elif source == "REED":
             queryset = queryset.filter(source=InternalJob.Source.REED)
             queryset = queryset.order_by("-external_created_at", "-created_at")
+
         else:
             queryset = queryset.order_by("-created_at")
 
@@ -411,6 +420,7 @@ class InternalJobListCreateView(generics.ListCreateAPIView):
             employer=self.request.user,
             source=InternalJob.Source.MANUAL,
             category=InternalJob.Category.OTHER,
+            is_active=True,
         )
 
 
@@ -420,7 +430,9 @@ class MyInternalJobsView(generics.ListAPIView):
 
     def get_queryset(self):
         return InternalJob.objects.filter(
-            employer=self.request.user
+            employer=self.request.user,
+            source=InternalJob.Source.MANUAL,
+            is_active=True,
         ).order_by("-created_at")
 
 
@@ -430,6 +442,64 @@ class InternalJobDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return InternalJob.objects.filter(is_active=True)
+
+
+class EmployerRemoveInternalJobView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        user_role = str(getattr(request.user, "role", "")).upper()
+
+        if user_role != "EMPLOYER":
+            return Response(
+                {"detail": "Only employers can remove job listings."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        job = InternalJob.objects.filter(
+            id=pk,
+            employer=request.user,
+            source=InternalJob.Source.MANUAL,
+        ).first()
+
+        if not job:
+            return Response(
+                {"detail": "Job listing not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        job.is_active = False
+        job.save(update_fields=["is_active"])
+
+        return Response(
+            {"detail": "Job listing removed successfully."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class GraduateActiveInternalJobsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cutoff_date = timezone.now() - timedelta(days=14)
+
+        jobs = (
+            InternalJob.objects.filter(
+                is_active=True,
+                source=InternalJob.Source.MANUAL,
+                created_at__gte=cutoff_date,
+            )
+            .select_related("employer")
+            .order_by("-created_at")
+        )
+
+        serializer = InternalJobSerializer(
+            jobs,
+            many=True,
+            context={"request": request},
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class SyncAdzunaView(APIView):

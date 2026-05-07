@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   FiBriefcase,
   FiGrid,
@@ -10,11 +11,16 @@ import {
   FiUser,
   FiUsers,
 } from "react-icons/fi";
+
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { api } from "./api/client";
+
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+
 import HomePage from "./pages/HomePage";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import EmployerStudentsPage from "./pages/EmployerStudentsPage";
@@ -26,9 +32,17 @@ import AdzunaJobsPage from "./pages/AdzunaJobsPage";
 import ReedJobsPage from "./pages/ReedJobsPage";
 import MyApplications from "./pages/MyApplications";
 import ChatsPage from "./pages/ChatsPage";
+
 import { styles } from "./ui/ui";
 
-type AuthScreen = "home" | "login" | "register" | "verify_email";
+type AuthScreen =
+  | "home"
+  | "login"
+  | "register"
+  | "verify_email"
+  | "forgot_password"
+  | "reset_password";
+
 type Role = "GRADUATE" | "EMPLOYER";
 
 type GraduateScreen =
@@ -54,7 +68,7 @@ function NavBtn({
   onClick,
 }: {
   active: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   onClick: () => void;
 }) {
@@ -186,13 +200,17 @@ function AppContent() {
   const [selectedAuthRole, setSelectedAuthRole] = useState<Role>("GRADUATE");
   const [verificationEmail, setVerificationEmail] = useState("");
 
+  const [resetPasswordUid, setResetPasswordUid] = useState("");
+  const [resetPasswordToken, setResetPasswordToken] = useState("");
+
   const [graduateScreen, setGraduateScreen] =
     useState<GraduateScreen>("internal_jobs");
   const [employerScreen, setEmployerScreen] =
     useState<EmployerScreen>("dashboard");
 
   const [chatApplicationId, setChatApplicationId] = useState<number | null>(null);
-  const [directMessageTargetUserId, setDirectMessageTargetUserId] = useState<number | null>(null);
+  const [directMessageTargetUserId, setDirectMessageTargetUserId] =
+    useState<number | null>(null);
 
   const [selectedEmployerJob, setSelectedEmployerJob] = useState<{
     id: number;
@@ -201,6 +219,19 @@ function AppContent() {
 
   const [acknowledgingCvNotice, setAcknowledgingCvNotice] = useState(false);
   const [cvNoticeError, setCvNoticeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isResetPassword = params.get("reset_password");
+    const uid = params.get("uid");
+    const token = params.get("token");
+
+    if (isResetPassword === "1" && uid && token) {
+      setResetPasswordUid(uid);
+      setResetPasswordToken(token);
+      setAuthScreen("reset_password");
+    }
+  }, []);
 
   function openChats(applicationId?: number | null) {
     setChatApplicationId(applicationId ?? null);
@@ -278,6 +309,37 @@ function AppContent() {
           onGoToVerify={(email) => {
             setVerificationEmail(email || "");
             setAuthScreen("verify_email");
+          }}
+          onGoToForgotPassword={(email) => {
+            setVerificationEmail(email || "");
+            setAuthScreen("forgot_password");
+          }}
+        />
+      );
+    }
+
+    if (authScreen === "forgot_password") {
+      return (
+        <ForgotPasswordPage
+          initialEmail={verificationEmail}
+          onBackHome={() => setAuthScreen("home")}
+          onBackToLogin={() => setAuthScreen("login")}
+        />
+      );
+    }
+
+    if (authScreen === "reset_password") {
+      return (
+        <ResetPasswordPage
+          uid={resetPasswordUid}
+          token={resetPasswordToken}
+          onBackToLogin={() => {
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+            setAuthScreen("login");
           }}
         />
       );

@@ -147,3 +147,6 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:5173")
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 REED_API_KEY = os.getenv("REED_API_KEY", "")
+
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

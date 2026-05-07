@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiBriefcase, FiPlusCircle, FiSearch, FiUsers } from "react-icons/fi";
+import { FiBriefcase, FiPlusCircle, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
 import {
   createInternalJob,
   listMyInternalJobs,
   type InternalJob,
 } from "../api/internalJobs";
+import { api } from "../api/client";
 import { styles } from "../ui/ui";
 import { getErrorMessage } from "../utils/getErrorMessages";
 
@@ -17,6 +18,7 @@ export default function EmployerDashboard({
 }: EmployerDashboardProps) {
   const [jobs, setJobs] = useState<InternalJob[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [removingJobId, setRemovingJobId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState<string>("ALL");
@@ -73,6 +75,31 @@ export default function EmployerDashboard({
     }
   }
 
+  async function handleRemoveJob(jobId: number, jobTitle: string) {
+    const confirmed = window.confirm(
+      `Are you sure you want to remove "${jobTitle}"? This listing will no longer be visible to graduates.`
+    );
+
+    if (!confirmed) return;
+
+    setError(null);
+    setRemovingJobId(jobId);
+
+    try {
+      await api.delete(`/internal-jobs/employer/jobs/${jobId}/remove/`);
+
+      setJobs((previousJobs) =>
+        previousJobs.filter((job) => job.id !== jobId)
+      );
+
+      alert("Job listing removed successfully.");
+    } catch (err: any) {
+      alert(getErrorMessage(err, "Unable to remove this job listing. Please try again."));
+    } finally {
+      setRemovingJobId(null);
+    }
+  }
+
   const filteredJobs = useMemo(() => {
     const s = search.trim().toLowerCase();
     const loc = locationFilter.trim().toLowerCase();
@@ -98,13 +125,13 @@ export default function EmployerDashboard({
           <span style={styles.eyebrow}>Employer Workspace</span>
           <h1 style={styles.pageTitle}>Manage your jobs</h1>
           <p style={styles.pageSubtitle}>
-            Create vacancies, review your job list, and open applicant views.
+            Create vacancies, review your job list, remove old listings, and open applicant views.
           </p>
         </div>
 
         <div style={styles.statChip}>
           <FiBriefcase size={16} />
-          {jobs.length} posted jobs
+          {jobs.length} active posted jobs
         </div>
       </div>
 
@@ -198,7 +225,7 @@ export default function EmployerDashboard({
           <div>
             <h2 style={styles.cardTitle}>My Jobs</h2>
             <p style={styles.cardSubtitle}>
-              Search and filter the jobs you have created.
+              Search and filter your active job listings.
             </p>
           </div>
 
@@ -239,7 +266,7 @@ export default function EmployerDashboard({
       {loadingJobs ? (
         <div style={styles.emptyState}>Loading your jobs...</div>
       ) : filteredJobs.length === 0 ? (
-        <div style={styles.emptyState}>No jobs found.</div>
+        <div style={styles.emptyState}>No active jobs found.</div>
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {filteredJobs.map((j) => (
@@ -260,17 +287,51 @@ export default function EmployerDashboard({
                   </div>
                 </div>
 
-                <button
-                  style={styles.buttonPrimary}
-                  onClick={() => onViewApplicants(j.id, j.title)}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
                 >
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                  <button
+                    style={styles.buttonPrimary}
+                    onClick={() => onViewApplicants(j.id, j.title)}
                   >
-                    <FiUsers size={16} />
-                    View Applicants
-                  </span>
-                </button>
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                    >
+                      <FiUsers size={16} />
+                      View Applicants
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveJob(j.id, j.title)}
+                    disabled={removingJobId === j.id}
+                    style={{
+                      height: 42,
+                      borderRadius: 12,
+                      border: "1px solid #fecaca",
+                      background: "#fef2f2",
+                      color: "#991b1b",
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: removingJobId === j.id ? "not-allowed" : "pointer",
+                      padding: "0 14px",
+                      opacity: removingJobId === j.id ? 0.7 : 1,
+                    }}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                    >
+                      <FiTrash2 size={16} />
+                      {removingJobId === j.id ? "Removing..." : "Remove Listing"}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <p

@@ -471,7 +471,14 @@ export default function InternalJobsPage() {
       closeApplyForm();
     } catch (err: any) {
       const data = err?.response?.data;
-      setError(typeof data === "object" ? JSON.stringify(data) : "Apply failed");
+
+      if (data?.detail) {
+        setError(data.detail);
+      } else if (typeof data === "string") {
+        setError(data);
+      } else {
+        setError("Apply failed. You may have already applied for this job.");
+      }
     } finally {
       setApplyLoading(false);
     }
@@ -521,13 +528,35 @@ export default function InternalJobsPage() {
             <span style={pageStyles.eyebrow}>Internal Opportunities</span>
             <h1 style={pageStyles.title}>Find graduate roles that fit you</h1>
             <p style={pageStyles.subtitle}>
-              Browse platform jobs 
+              Browse recent platform jobs created by employers.
             </p>
           </div>
 
-          <div style={pageStyles.badge}>
-            <span>{filteredJobs.length}</span>
-            <span style={pageStyles.muted}>jobs available</span>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              style={{
+                ...pageStyles.secondaryButton,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+              onClick={load}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Refresh Listings"}
+            </button>
+
+            <div style={pageStyles.badge}>
+              <span>{filteredJobs.length}</span>
+              <span style={pageStyles.muted}>jobs available</span>
+            </div>
           </div>
         </div>
 
