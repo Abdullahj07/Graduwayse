@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FiExternalLink, FiRefreshCw, FiSearch } from "react-icons/fi";
 import {
   listInternalJobs,
@@ -8,19 +8,6 @@ import {
 import { styles } from "../ui/ui";
 import { getErrorMessage } from "../utils/getErrorMessages";
 
-const categoryOptions = [
-  { value: "ALL", label: "All Categories" },
-  { value: "SOFTWARE", label: "Software" },
-  { value: "DATA", label: "Data" },
-  { value: "AI_ML", label: "AI / ML" },
-  { value: "CYBER", label: "Cybersecurity" },
-  { value: "CLOUD_DEVOPS", label: "Cloud / DevOps" },
-  { value: "IT_SUPPORT", label: "IT Support" },
-  { value: "PRODUCT", label: "Product" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "OTHER", label: "Other" },
-];
-
 export default function AdzunaJobsPage() {
   const [jobs, setJobs] = useState<InternalJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,16 +16,13 @@ export default function AdzunaJobsPage() {
 
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
-  const pageSize = 10;
 
-  const [levelFilter, setLevelFilter] = useState("ALL");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [keyword, setKeyword] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
 
-  async function load(
-    pageNumber: number,
-    level = levelFilter,
-    category = categoryFilter
-  ) {
+  const pageSize = 50;
+
+  async function load(pageNumber: number) {
     setError(null);
     setLoading(true);
 
@@ -47,8 +31,6 @@ export default function AdzunaJobsPage() {
         source: "ADZUNA",
         page: pageNumber,
         page_size: pageSize,
-        level,
-        category,
         ordering: "latest_adzuna",
       });
 
@@ -63,11 +45,37 @@ export default function AdzunaJobsPage() {
   }
 
   useEffect(() => {
-    load(1, levelFilter, categoryFilter);
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalPages = Math.max(1, Math.ceil(count / pageSize));
+
+  const filteredJobs = useMemo(() => {
+    const keywordText = keyword.trim().toLowerCase();
+    const locationText = locationSearch.trim().toLowerCase();
+
+    return jobs.filter((job) => {
+      const searchableText = [
+        job.title,
+        job.company_name,
+        job.location,
+        job.description,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const jobLocation = (job.location || "").toLowerCase();
+
+      const matchesKeyword =
+        !keywordText || searchableText.includes(keywordText);
+
+      const matchesLocation =
+        !locationText || jobLocation.includes(locationText);
+
+      return matchesKeyword && matchesLocation;
+    });
+  }, [jobs, keyword, locationSearch]);
 
   async function handleSync() {
     setError(null);
@@ -75,7 +83,7 @@ export default function AdzunaJobsPage() {
 
     try {
       await syncAdzunaJobs();
-      await load(1, levelFilter, categoryFilter);
+      await load(1);
     } catch (err: any) {
       setError(getErrorMessage(err, "Failed to sync Adzuna jobs"));
     } finally {
@@ -83,10 +91,9 @@ export default function AdzunaJobsPage() {
     }
   }
 
-  async function applyFilters(nextLevel: string, nextCategory: string) {
-    setLevelFilter(nextLevel);
-    setCategoryFilter(nextCategory);
-    await load(1, nextLevel, nextCategory);
+  function clearSearch() {
+    setKeyword("");
+    setLocationSearch("");
   }
 
   return (
@@ -96,7 +103,7 @@ export default function AdzunaJobsPage() {
           <span style={styles.eyebrow}>External Opportunities</span>
           <h1 style={styles.pageTitle}>Adzuna Jobs</h1>
           <p style={styles.pageSubtitle}>
-            Browse graduate and entry-level roles imported from Adzuna.
+            Browse the latest external roles imported from Adzuna.
           </p>
         </div>
 
@@ -111,8 +118,11 @@ export default function AdzunaJobsPage() {
       <div style={styles.card}>
         <div style={styles.cardHeader}>
           <div>
-            <h2 style={styles.cardTitle}>Filters</h2>
-            <p style={styles.cardSubtitle}>Refine the imported job listings.</p>
+            <h2 style={styles.cardTitle}>Search Adzuna Jobs</h2>
+            <p style={styles.cardSubtitle}>
+              Search by keyword or location. Category and level filters are not
+              used for external jobs because third-party job data can be inconsistent.
+            </p>
           </div>
 
           <button
@@ -128,38 +138,37 @@ export default function AdzunaJobsPage() {
         </div>
 
         <div style={styles.grid2}>
-          <select
+          <input
             style={styles.input}
-            value={levelFilter}
-            onChange={(e) => applyFilters(e.target.value, categoryFilter)}
-          >
-            <option value="ALL">All Levels</option>
-            <option value="GRADUATE">Graduate</option>
-            <option value="ENTRY">Entry</option>
-            <option value="INTERNSHIP">Internship</option>
-          </select>
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="Search title, company, or description..."
+          />
 
-          <select
+          <input
             style={styles.input}
-            value={categoryFilter}
-            onChange={(e) => applyFilters(levelFilter, e.target.value)}
-          >
-            {categoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            value={locationSearch}
+            onChange={(e) => setLocationSearch(e.target.value)}
+            placeholder="Search location..."
+          />
         </div>
+
+        {(keyword || locationSearch) && (
+          <div style={{ marginTop: 14 }}>
+            <button style={styles.buttonSecondary} onClick={clearSearch}>
+              Clear Search
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
         <div style={styles.emptyState}>Loading Adzuna jobs...</div>
-      ) : jobs.length === 0 ? (
-        <div style={styles.emptyState}>No jobs found for these filters.</div>
+      ) : filteredJobs.length === 0 ? (
+        <div style={styles.emptyState}>No Adzuna jobs found.</div>
       ) : (
         <div style={{ display: "grid", gap: 14 }}>
-          {jobs.map((job) => (
+          {filteredJobs.map((job) => (
             <div key={job.id} style={styles.card}>
               <div
                 style={{
@@ -187,8 +196,7 @@ export default function AdzunaJobsPage() {
                       marginTop: 12,
                     }}
                   >
-                    <span style={styles.pill}>{job.level}</span>
-                    <span style={styles.pill}>{job.category || "OTHER"}</span>
+                    <span style={styles.pill}>Adzuna</span>
                     <span style={styles.pill}>
                       Posted{" "}
                       {job.external_created_at
@@ -244,7 +252,7 @@ export default function AdzunaJobsPage() {
       >
         <button
           style={styles.buttonSecondary}
-          onClick={() => load(page - 1, levelFilter, categoryFilter)}
+          onClick={() => load(page - 1)}
           disabled={page <= 1 || loading}
         >
           Previous
@@ -256,7 +264,7 @@ export default function AdzunaJobsPage() {
 
         <button
           style={styles.buttonSecondary}
-          onClick={() => load(page + 1, levelFilter, categoryFilter)}
+          onClick={() => load(page + 1)}
           disabled={page >= totalPages || loading}
         >
           Next

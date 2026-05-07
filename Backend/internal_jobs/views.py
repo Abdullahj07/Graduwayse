@@ -70,54 +70,128 @@ def infer_category(title, description):
     text = f"{title} {description}".lower()
 
     if any(x in text for x in [
-        "machine learning", "ml ", " ai ", "artificial intelligence",
-        "deep learning", "nlp", "computer vision", "llm"
+        "machine learning",
+        " ml ",
+        " ai ",
+        "artificial intelligence",
+        "deep learning",
+        "nlp",
+        "computer vision",
+        "llm",
+        "data science",
     ]):
         return InternalJob.Category.AI_ML
 
     if any(x in text for x in [
-        "data analyst", "data engineer", "data scientist", "analytics",
-        "business intelligence", "bi analyst", "sql", "power bi", "tableau"
+        "data analyst",
+        "data engineer",
+        "data scientist",
+        "analytics",
+        "business intelligence",
+        "bi analyst",
+        "sql",
+        "power bi",
+        "tableau",
+        "database",
     ]):
         return InternalJob.Category.DATA
 
     if any(x in text for x in [
-        "cyber", "security analyst", "soc analyst", "information security",
-        "penetration tester", "infosec"
+        "cyber",
+        "cybersecurity",
+        "security analyst",
+        "soc analyst",
+        "information security",
+        "penetration tester",
+        "infosec",
+        "network security",
     ]):
         return InternalJob.Category.CYBER
 
     if any(x in text for x in [
-        "devops", "cloud engineer", "aws", "azure", "gcp", "platform engineer",
-        "site reliability", "sre", "infrastructure"
+        "devops",
+        "cloud engineer",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp",
+        "platform engineer",
+        "site reliability",
+        "sre",
+        "infrastructure",
     ]):
         return InternalJob.Category.CLOUD_DEVOPS
 
     if any(x in text for x in [
-        "it support", "service desk", "helpdesk", "desktop support", "technical support"
+        "it support",
+        "service desk",
+        "helpdesk",
+        "desktop support",
+        "technical support",
+        "support analyst",
     ]):
         return InternalJob.Category.IT_SUPPORT
 
     if any(x in text for x in [
-        "product manager", "product analyst", "product owner"
+        "product manager",
+        "product analyst",
+        "product owner",
+        "associate product",
     ]):
         return InternalJob.Category.PRODUCT
 
     if any(x in text for x in [
-        "business analyst", "operations analyst", "consulting", "consultant",
-        "project coordinator", "project analyst"
+        "marketing",
+        "marketing assistant",
+        "digital marketing",
+        "social media",
+        "communications",
+        "public relations",
+        "sales",
+        "commercial",
+        "business analyst",
+        "operations analyst",
+        "operations assistant",
+        "consulting",
+        "consultant",
+        "project coordinator",
+        "project analyst",
+        "finance",
+        "accounting",
+        "human resources",
+        "hr assistant",
+        "recruitment",
+        "admin",
+        "administrator",
     ]):
         return InternalJob.Category.BUSINESS
 
     if any(x in text for x in [
-        "software", "developer", "engineer", "frontend", "backend", "full stack",
-        "full-stack", "web developer", "mobile developer", "python", "java",
-        "react", "django", "node", "typescript", "c++", "c#", ".net"
+        "software",
+        "developer",
+        "engineer",
+        "frontend",
+        "front-end",
+        "backend",
+        "back-end",
+        "full stack",
+        "full-stack",
+        "web developer",
+        "mobile developer",
+        "python",
+        "java",
+        "javascript",
+        "react",
+        "django",
+        "node",
+        "typescript",
+        "c++",
+        "c#",
+        ".net",
     ]):
         return InternalJob.Category.SOFTWARE
 
     return InternalJob.Category.OTHER
-
 
 def parse_external_created(value):
     if not value:
@@ -178,11 +252,22 @@ def fetch_adzuna_jobs():
                 "sort_by": "date",
             }
 
-            res = requests.get(url, params=params, timeout=20)
-            res.raise_for_status()
-            data = res.json()
+            try:
+                res = requests.get(url, params=params, timeout=20)
+
+                if res.status_code in [429, 500, 502, 503, 504]:
+                    skipped_count += 1
+                    continue
+
+                res.raise_for_status()
+                data = res.json()
+
+            except (requests.exceptions.RequestException, ValueError):
+                skipped_count += 1
+                continue
 
             results = data.get("results", [])
+
             if not results:
                 continue
 
@@ -278,6 +363,7 @@ def fetch_reed_jobs():
     for search_term in search_terms:
         for offset in [0, 25, 50]:
             url = "https://www.reed.co.uk/api/1.0/search"
+
             params = {
                 "keywords": search_term,
                 "resultsToTake": 25,
@@ -285,16 +371,27 @@ def fetch_reed_jobs():
                 "graduate": True,
             }
 
-            res = requests.get(
-                url,
-                params=params,
-                auth=(api_key, ""),
-                timeout=20,
-            )
-            res.raise_for_status()
-            data = res.json()
+            try:
+                res = requests.get(
+                    url,
+                    params=params,
+                    auth=(api_key, ""),
+                    timeout=20,
+                )
+
+                if res.status_code in [429, 500, 502, 503, 504]:
+                    skipped_count += 1
+                    continue
+
+                res.raise_for_status()
+                data = res.json()
+
+            except (requests.exceptions.RequestException, ValueError):
+                skipped_count += 1
+                continue
 
             results = data.get("results", [])
+
             if not results:
                 continue
 
@@ -377,6 +474,8 @@ class InternalJobListCreateView(generics.ListCreateAPIView):
         level = self.request.query_params.get("level")
         category = self.request.query_params.get("category")
         ordering = self.request.query_params.get("ordering")
+
+        source = source.upper() if source else None
 
         if source == "MANUAL":
             cutoff_date = timezone.now() - timedelta(days=14)
@@ -511,14 +610,17 @@ class SyncAdzunaView(APIView):
             return Response(
                 {
                     "status": "synced",
+                    "detail": "Adzuna jobs synced successfully. Some unavailable results may have been skipped.",
                     **result,
                 },
                 status=status.HTTP_200_OK,
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "detail": "Adzuna is temporarily unavailable. Please try again later."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
     def post(self, request):
@@ -527,14 +629,17 @@ class SyncAdzunaView(APIView):
             return Response(
                 {
                     "status": "synced",
+                    "detail": "Adzuna jobs synced successfully. Some unavailable results may have been skipped.",
                     **result,
                 },
                 status=status.HTTP_200_OK,
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "detail": "Adzuna is temporarily unavailable. Please try again later."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
 
@@ -547,14 +652,17 @@ class SyncReedView(APIView):
             return Response(
                 {
                     "status": "synced",
+                    "detail": "Reed jobs synced successfully. Some unavailable results may have been skipped.",
                     **result,
                 },
                 status=status.HTTP_200_OK,
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "detail": "Reed is temporarily unavailable. Please try again later."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
     def post(self, request):
@@ -563,12 +671,15 @@ class SyncReedView(APIView):
             return Response(
                 {
                     "status": "synced",
+                    "detail": "Reed jobs synced successfully. Some unavailable results may have been skipped.",
                     **result,
                 },
                 status=status.HTTP_200_OK,
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {"detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "detail": "Reed is temporarily unavailable. Please try again later."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
