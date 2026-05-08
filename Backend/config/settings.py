@@ -229,3 +229,44 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+
+
+# --- OpenShift CORS override ---
+import os as _os
+
+OPENSHIFT_FRONTEND_URL = "https://graduwayse-frontend-graduwaysenew.apps.a.comp-teach.qmul.ac.uk"
+
+FRONTEND_URL = _os.getenv("FRONTEND_URL", OPENSHIFT_FRONTEND_URL).rstrip("/")
+
+_default_cors_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    OPENSHIFT_FRONTEND_URL,
+    FRONTEND_URL,
+]
+
+_env_cors = _os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in _env_cors.split(",")
+    if origin.strip()
+] if _env_cors else []
+
+for origin in _default_cors_origins:
+    if origin and origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
+
+_env_csrf = _os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in _env_csrf.split(",")
+    if origin.strip()
+] if _env_csrf else []
+
+for origin in _default_cors_origins:
+    if origin and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
+
+CORS_ALLOW_CREDENTIALS = True
+# --- End OpenShift CORS override ---
+
