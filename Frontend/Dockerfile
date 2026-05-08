@@ -11,11 +11,12 @@ RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.25-alpine
 
+USER 0
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 
-USER 0
 RUN chmod +x /docker-entrypoint.sh \
     && chown -R 101:0 /usr/share/nginx/html \
     && chmod -R g=u /usr/share/nginx/html \
