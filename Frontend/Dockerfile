@@ -8,13 +8,22 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
 
-WORKDIR /app
-RUN npm install -g serve
+FROM nginxinc/nginx-unprivileged:1.25-alpine
 
-COPY --from=build /app/dist ./dist
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY --from=build /app/dist /usr/share/nginx/html
+
+USER 0
+RUN chmod +x /docker-entrypoint.sh \
+    && chown -R 101:0 /usr/share/nginx/html \
+    && chmod -R g=u /usr/share/nginx/html \
+    && chmod g+rx /docker-entrypoint.sh
+
+USER 101
 
 EXPOSE 8080
 
-CMD ["serve", "-s", "dist", "-l", "8080"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
