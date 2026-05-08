@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { WS_BASE_URL } from "../api/config";
 
 type UserRole = "GRADUATE" | "EMPLOYER";
 
@@ -437,7 +438,7 @@ export default function ChatsPage({
       if (socketsRef.current[conversation.id]) continue;
 
       const socket = new WebSocket(
-        `ws://127.0.0.1:8000/ws/applications/${conversation.id}/?token=${token}`
+        `${WS_BASE_URL}/ws/applications/${conversation.id}/?token=${token}`
       );
 
       socket.onmessage = (event) => {
