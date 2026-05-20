@@ -10,6 +10,7 @@ Please note that Python 3.11 - 3.12 is recommended for running this project loca
 - Applications and status tracking
 - Graduate profiles and CV uploads
 - Direct messaging and application chat
+- Employers can choose viable graudates and message privately
 
 ## Requirements
 - Python 3.11 or 3.12
@@ -23,3 +24,5 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
+
+The website has also been deployed on openshift and is avialable here https://graduwayse-frontend-graduwaysenew.apps.a.comp-teach.qmul.ac.uk if you prefer to not run the code on your local server
